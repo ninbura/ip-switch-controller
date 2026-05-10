@@ -7,7 +7,8 @@ from typing import Callable, Optional
 RECONNECT_DELAY = 2
 POLL_INTERVAL = 2
 SWITCH_TIMEOUT = 3
-FEEDBACK_OPCODE = 0x10
+FEEDBACK_OPCODE = 0x11
+PACKET_HEADER = (0xAA, 0xBB)
 PACKET_LENGTH = 6
 QUERY_COMMAND = bytes([0xAA, 0xBB, 0x03, 0x10, 0x00, 0xEE])
 
@@ -117,11 +118,11 @@ class TesmartClient:
 
     def _handle_packet(self, packet: bytes) -> None:
         _log(f"packet {self.ip}: {packet.hex()}")
-        if packet[0] != 0xAA or packet[1] != 0xBB or packet[5] != 0xEE:
-            _log(f"invalid packet header/footer, skipping")
+        if packet[0] != PACKET_HEADER[0] or packet[1] != PACKET_HEADER[1]:
+            _log(f"invalid packet header, skipping")
             return
         if packet[3] == FEEDBACK_OPCODE:
-            active_input = packet[4] + 1
+            active_input = packet[4]  # already 1-indexed
             _log(f"active input on {self.ip}: {active_input}")
             if self._on_input_change:
                 self._on_input_change(active_input)
