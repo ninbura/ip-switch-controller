@@ -7,7 +7,6 @@ from datetime import datetime
 from typing import Callable, Optional
 
 RECONNECT_DELAY = 2
-POLL_INTERVAL = 2
 SWITCH_TIMEOUT = 3
 FEEDBACK_OPCODE = 0x11
 PACKET_HEADER = (0xAA, 0xBB)
@@ -76,7 +75,6 @@ class TesmartClient:
         while self._running:
             try:
                 sock = socket.create_connection((self.ip, self.port), timeout=5)
-                sock.settimeout(POLL_INTERVAL)
             except Exception as e:
                 _log(f"connection to {self.ip}:{self.port} failed: {e}")
                 time.sleep(RECONNECT_DELAY)
@@ -102,6 +100,7 @@ class TesmartClient:
     def _listen(self, sock: socket.socket) -> None:
         buffer = b""
 
+        # One initial query to get the current active input on connect
         try:
             sock.sendall(QUERY_COMMAND)
             _log(f"sent initial query to {self.ip}")
@@ -109,6 +108,7 @@ class TesmartClient:
             _log(f"initial query to {self.ip} failed: {e}")
             return
 
+        # Passive listener — the switch broadcasts 0x11 on every input change
         while self._running:
             try:
                 data = sock.recv(256)
@@ -120,12 +120,6 @@ class TesmartClient:
                 while len(buffer) >= PACKET_LENGTH:
                     self._handle_packet(buffer[:PACKET_LENGTH])
                     buffer = buffer[PACKET_LENGTH:]
-            except socket.timeout:
-                try:
-                    sock.sendall(QUERY_COMMAND)
-                    _log(f"sent poll query to {self.ip}")
-                except Exception:
-                    break
             except Exception as e:
                 _log(f"recv error on {self.ip}: {e}")
                 break
