@@ -21,5 +21,5 @@ class TesmartClient:
         """Return the currently active input port number (1–16)."""
         command = bytes([0xAA, 0xBB, 0x03, 0x10, 0x00, 0xEE])
         response = self._send(command)
-        # Response mirrors the command structure; active port is at byte index 4
-        return response[4]
+        # Response byte at index 4 is 0-indexed (0x00 = Input 1); normalize to 1-indexed
+        return response[4] + 1
