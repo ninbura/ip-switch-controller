@@ -6,9 +6,12 @@ from typing import Callable, Optional
 
 log = logging.getLogger(__name__)
 
-RECONNECT_DELAY = 2
+RECONNECT_DELAY = 0
+POLL_INTERVAL = 2
+SWITCH_TIMEOUT = 3  # seconds to wait for a connection before giving up
 FEEDBACK_OPCODE = 0x10
 PACKET_LENGTH = 6
+QUERY_COMMAND = bytes([0xAA, 0xBB, 0x03, 0x10, 0x00, 0xEE])
 
 
 class TesmartClient:
@@ -25,10 +28,15 @@ class TesmartClient:
     def switch_to(self, input_number: int) -> None:
         if not 1 <= input_number <= 16:
             raise ValueError(f"input_number must be 1–16, got {input_number}")
-        with self._sock_lock:
-            sock = self._sock
-        if sock is None:
-            raise ConnectionError(f"Not connected to {self.ip}")
+        deadline = time.time() + SWITCH_TIMEOUT
+        while True:
+            with self._sock_lock:
+                sock = self._sock
+            if sock is not None:
+                break
+            if time.time() >= deadline:
+                raise ConnectionError(f"Not connected to {self.ip}")
+            time.sleep(0.05)
         sock.sendall(bytes([0xAA, 0xBB, 0x03, 0x01, input_number, 0xEE]))
 
     def stop(self) -> None:
@@ -42,6 +50,7 @@ class TesmartClient:
         while self._running:
             try:
                 sock = socket.create_connection((self.ip, self.port), timeout=5)
+                sock.settimeout(POLL_INTERVAL)
             except Exception as e:
                 log.warning("Connection to %s:%d failed: %s", self.ip, self.port, e)
                 time.sleep(RECONNECT_DELAY)
@@ -60,11 +69,19 @@ class TesmartClient:
             except Exception:
                 pass
 
-            if self._running:
+            if self._running and RECONNECT_DELAY > 0:
                 time.sleep(RECONNECT_DELAY)
 
     def _listen(self, sock: socket.socket) -> None:
         buffer = b""
+
+        # Query immediately on connect to get the current active input
+        try:
+            sock.sendall(QUERY_COMMAND)
+        except Exception as e:
+            log.warning("Initial query to %s failed: %s", self.ip, e)
+            return
+
         while self._running:
             try:
                 data = sock.recv(256)
@@ -75,6 +92,12 @@ class TesmartClient:
                 while len(buffer) >= PACKET_LENGTH:
                     self._handle_packet(buffer[:PACKET_LENGTH])
                     buffer = buffer[PACKET_LENGTH:]
+            except socket.timeout:
+                # No data received — poll for current state
+                try:
+                    sock.sendall(QUERY_COMMAND)
+                except Exception:
+                    break
             except Exception:
                 break
 
