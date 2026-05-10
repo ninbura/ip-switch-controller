@@ -1,7 +1,9 @@
+import glob
 import os
 import socket
 import threading
 import time
+from datetime import datetime
 from typing import Callable, Optional
 
 RECONNECT_DELAY = 2
@@ -13,15 +15,27 @@ PACKET_LENGTH = 6
 QUERY_COMMAND = bytes([0xAA, 0xBB, 0x03, 0x10, 0x00, 0xEE])
 
 _LOG_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__ or ""))), "log")
-_LOG_PATH = os.path.join(_LOG_DIR, "debug.log")
+_LOG_PATH = os.path.join(_LOG_DIR, f"debug_{datetime.now().strftime('%Y-%m-%dT%H-%M-%S')}.log")
+_MAX_LOGS = 10
+
+
+def _setup_log() -> None:
+    try:
+        os.makedirs(_LOG_DIR, exist_ok=True)
+        logs = sorted(glob.glob(os.path.join(_LOG_DIR, "debug_*.log")))
+        for old in logs[:-(_MAX_LOGS - 1)]:
+            os.remove(old)
+    except Exception:
+        pass
+
+
+_setup_log()
 
 
 def _log(msg: str) -> None:
-    line = f"[tesmart] {msg}\n"
     try:
-        os.makedirs(_LOG_DIR, exist_ok=True)
         with open(_LOG_PATH, "a") as f:
-            f.write(line)
+            f.write(f"[tesmart] {msg}\n")
     except Exception:
         pass
 
