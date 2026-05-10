@@ -1,17 +1,28 @@
-import logging
+import os
 import socket
 import threading
 import time
 from typing import Callable, Optional
 
-log = logging.getLogger(__name__)
-
-RECONNECT_DELAY = 0
+RECONNECT_DELAY = 2
 POLL_INTERVAL = 2
-SWITCH_TIMEOUT = 3  # seconds to wait for a connection before giving up
+SWITCH_TIMEOUT = 3
 FEEDBACK_OPCODE = 0x10
 PACKET_LENGTH = 6
 QUERY_COMMAND = bytes([0xAA, 0xBB, 0x03, 0x10, 0x00, 0xEE])
+
+_LOG_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__ or ""))), "log")
+_LOG_PATH = os.path.join(_LOG_DIR, "debug.log")
+
+
+def _log(msg: str) -> None:
+    line = f"[tesmart] {msg}\n"
+    try:
+        os.makedirs(_LOG_DIR, exist_ok=True)
+        with open(_LOG_PATH, "a") as f:
+            f.write(line)
+    except Exception:
+        pass
 
 
 class TesmartClient:
@@ -52,14 +63,14 @@ class TesmartClient:
                 sock = socket.create_connection((self.ip, self.port), timeout=5)
                 sock.settimeout(POLL_INTERVAL)
             except Exception as e:
-                log.warning("Connection to %s:%d failed: %s", self.ip, self.port, e)
+                _log(f"connection to {self.ip}:{self.port} failed: {e}")
                 time.sleep(RECONNECT_DELAY)
                 continue
 
+            _log(f"connected to {self.ip}:{self.port}")
             with self._sock_lock:
                 self._sock = sock
 
-            log.debug("Connected to %s:%d", self.ip, self.port)
             self._listen(sock)
 
             with self._sock_lock:
@@ -69,40 +80,48 @@ class TesmartClient:
             except Exception:
                 pass
 
-            if self._running and RECONNECT_DELAY > 0:
+            _log(f"disconnected from {self.ip}, reconnecting in {RECONNECT_DELAY}s")
+            if self._running:
                 time.sleep(RECONNECT_DELAY)
 
     def _listen(self, sock: socket.socket) -> None:
         buffer = b""
 
-        # Query immediately on connect to get the current active input
         try:
             sock.sendall(QUERY_COMMAND)
+            _log(f"sent initial query to {self.ip}")
         except Exception as e:
-            log.warning("Initial query to %s failed: %s", self.ip, e)
+            _log(f"initial query to {self.ip} failed: {e}")
             return
 
         while self._running:
             try:
                 data = sock.recv(256)
                 if not data:
-                    log.warning("Connection to %s closed by server", self.ip)
+                    _log(f"connection to {self.ip} closed by server")
                     break
+                _log(f"recv {self.ip}: {data.hex()}")
                 buffer += data
                 while len(buffer) >= PACKET_LENGTH:
                     self._handle_packet(buffer[:PACKET_LENGTH])
                     buffer = buffer[PACKET_LENGTH:]
             except socket.timeout:
-                # No data received — poll for current state
                 try:
                     sock.sendall(QUERY_COMMAND)
+                    _log(f"sent poll query to {self.ip}")
                 except Exception:
                     break
-            except Exception:
+            except Exception as e:
+                _log(f"recv error on {self.ip}: {e}")
                 break
 
     def _handle_packet(self, packet: bytes) -> None:
+        _log(f"packet {self.ip}: {packet.hex()}")
         if packet[0] != 0xAA or packet[1] != 0xBB or packet[5] != 0xEE:
+            _log(f"invalid packet header/footer, skipping")
             return
-        if packet[3] == FEEDBACK_OPCODE and self._on_input_change:
-            self._on_input_change(packet[4] + 1)  # convert 0-indexed to 1-indexed
+        if packet[3] == FEEDBACK_OPCODE:
+            active_input = packet[4] + 1
+            _log(f"active input on {self.ip}: {active_input}")
+            if self._on_input_change:
+                self._on_input_change(active_input)
