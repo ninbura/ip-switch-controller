@@ -6,7 +6,6 @@ if _plugin_root not in sys.path:
     sys.path.insert(0, _plugin_root)
 
 from src.backend.PluginManager.ActionBase import ActionBase
-from backend.tesmart_client import TesmartClient
 
 import gi
 gi.require_version("Gtk", "4.0")
@@ -56,11 +55,10 @@ class SwitchInputAction(ActionBase):
     def on_key_down(self) -> None:
         settings = self.get_settings()
         number = settings.get(SETTINGS_KEY_INPUT, DEFAULT_INPUT)
+        ip = self.get_ip()
         try:
-            client = TesmartClient(self.get_ip())
-            client.switch_to(number)
-            self.plugin_base.notify_active_input(number)
-            self.plugin_base.trigger_poll()
+            self.plugin_base.get_client(ip).switch_to(number)
+            self.plugin_base.notify_active_input(ip, number)
         except Exception:
             self.show_error(duration=2)
 
