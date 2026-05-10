@@ -22,6 +22,7 @@ class TesmartController(PluginBase):
 
         self._actions: list[SwitchInputAction] = []
         self._actions_lock = threading.Lock()
+        self._poll_event = threading.Event()
 
         self.switch_input_holder = ActionHolder(
             plugin_base=self,
@@ -50,6 +51,16 @@ class TesmartController(PluginBase):
         with self._actions_lock:
             if action not in self._actions:
                 self._actions.append(action)
+        self._poll_event.set()  # wake the poll thread immediately
+
+    def trigger_poll(self) -> None:
+        self._poll_event.set()
+
+    def notify_active_input(self, active_input: int) -> None:
+        with self._actions_lock:
+            actions_snapshot = list(self._actions)
+        for action in actions_snapshot:
+            GLib.idle_add(action.update_active_state, active_input)
 
     def unregister_action(self, action: "SwitchInputAction") -> None:
         with self._actions_lock:
@@ -73,4 +84,5 @@ class TesmartController(PluginBase):
                 except Exception:
                     pass
 
-            time.sleep(POLL_INTERVAL)
+            self._poll_event.wait(POLL_INTERVAL)
+            self._poll_event.clear()

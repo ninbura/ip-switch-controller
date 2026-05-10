@@ -59,6 +59,8 @@ class SwitchInputAction(ActionBase):
         try:
             client = TesmartClient(self.get_ip())
             client.switch_to(number)
+            self.plugin_base.notify_active_input(number)
+            self.plugin_base.trigger_poll()
         except Exception:
             self.show_error(duration=2)
 
