@@ -16,7 +16,7 @@ DEFAULT_IP = "192.168.1.10"
 DEFAULT_INPUT = 1
 MAX_INPUTS = 16
 DEFAULT_INACTIVE_COLOR = "#000000"
-DEFAULT_ACTIVE_COLOR = "#C8C8C8"
+DEFAULT_ACTIVE_COLOR = "#202020"
 SETTINGS_KEY_IP = "ip"
 SETTINGS_KEY_INPUT = "input_number"
 SETTINGS_KEY_INACTIVE_COLOR = "inactive_color"
@@ -44,7 +44,7 @@ class SwitchInputAction(ActionBase):
     def on_ready(self) -> None:
         settings = self.get_settings()
         number = settings.get(SETTINGS_KEY_INPUT, DEFAULT_INPUT)
-        self.set_bottom_label(_input_label(number))
+        self.set_center_label(_input_label(number))
         self.plugin_base.register_action(self)
 
     def on_removed_from_cache(self) -> None:
@@ -106,7 +106,7 @@ class SwitchInputAction(ActionBase):
         number = combo.get_selected() + 1
         settings[SETTINGS_KEY_INPUT] = number
         self.set_settings(settings)
-        self.set_bottom_label(_input_label(number))
+        self.set_center_label(_input_label(number))
 
     def on_inactive_color_changed(self, entry) -> None:
         settings = self.get_settings()
