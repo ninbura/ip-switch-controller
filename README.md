@@ -1,6 +1,6 @@
 # IP Switch Controller
 
-A [StreamController](https://github.com/StreamController/StreamController) plugin for controlling IP-connected signal switchers. The intended scope is input switching — not full device configuration. For anything beyond that, I would suggest using the manufacturer's first-party software.
+A [StreamController](https://github.com/StreamController/StreamController) plugin for controlling IP-connected signal switchers. The intended scope is input switching, not full device configuration. For anything beyond that, I would suggest using the manufacturer's first-party software.
 
 ## Supported Devices
 
