@@ -111,6 +111,8 @@ class SwitchInputAction(ActionBase):
         settings[SETTINGS_KEY_INPUT] = number
         self.set_settings(settings)
         self.set_center_label(_input_label(number), font_size=DEFAULT_LABEL_SIZE)
+        if self._last_active_input is not None:
+            self.update_active_state(self._last_active_input)
 
     def on_inactive_color_changed(self, entry) -> None:
         settings = self.get_settings()
