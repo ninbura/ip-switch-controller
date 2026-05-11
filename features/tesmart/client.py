@@ -3,7 +3,7 @@ import threading
 import time
 from typing import Callable, Optional
 
-from backend.logger import log as _log
+from ...shared.logger import log as _log
 
 RECONNECT_DELAY = 2
 SWITCH_TIMEOUT = 3

@@ -6,10 +6,10 @@ import gi
 gi.require_version("Gtk", "4.0")
 from gi.repository import GLib
 
-from ..backend.hdfury_client import HDFuryClient
+from .client import HDFuryClient
 
 if TYPE_CHECKING:
-    from ..actions.hdfury.SwitchInput import HDFurySwitchInput
+    from .switch_input import HDFurySwitchInput
 
 
 def _is_valid_ip(ip: str) -> bool:
