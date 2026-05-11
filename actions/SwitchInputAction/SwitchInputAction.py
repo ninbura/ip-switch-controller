@@ -102,8 +102,12 @@ class SwitchInputAction(ActionBase):
 
     def on_ip_changed(self, entry) -> None:
         settings = self.get_settings()
-        settings[SETTINGS_KEY_IP] = entry.get_text()
+        old_ip = settings.get(SETTINGS_KEY_IP, DEFAULT_IP)
+        new_ip = entry.get_text()
+        settings[SETTINGS_KEY_IP] = new_ip
         self.set_settings(settings)
+        if old_ip != new_ip:
+            self.plugin_base.handle_ip_change(self, old_ip, new_ip)
 
     def on_input_changed(self, combo, _param) -> None:
         settings = self.get_settings()

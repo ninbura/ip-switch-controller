@@ -73,6 +73,18 @@ class TesmartController(PluginBase):
             if client:
                 client.stop()
 
+    def handle_ip_change(self, action: SwitchInputAction, old_ip: str, new_ip: str) -> None:
+        with self._actions_lock:
+            still_used = any(a is not action and a.get_ip() == old_ip for a in self._actions)
+        if not still_used:
+            with self._clients_lock:
+                client = self._clients.pop(old_ip, None)
+            if client:
+                client.stop()
+        self.get_client(new_ip)
+        if new_ip in self._last_active:
+            GLib.idle_add(action.update_active_state, self._last_active[new_ip])
+
     def notify_active_input(self, ip: str, active_input: int) -> None:
         with self._actions_lock:
             actions_snapshot = [a for a in self._actions if a.get_ip() == ip]
