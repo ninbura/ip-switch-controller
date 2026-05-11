@@ -1,5 +1,4 @@
 import threading
-import time
 
 import gi
 gi.require_version("Gtk", "4.0")
@@ -13,8 +12,6 @@ from src.backend.DeckManagement.InputIdentifier import Input
 from .actions.SwitchInputAction.SwitchInputAction import SwitchInputAction
 from .backend.tesmart_client import TesmartClient
 
-POLL_INTERVAL = 2
-
 
 class TesmartController(PluginBase):
     def __init__(self):
@@ -22,7 +19,9 @@ class TesmartController(PluginBase):
 
         self._actions: list[SwitchInputAction] = []
         self._actions_lock = threading.Lock()
-        self._poll_event = threading.Event()
+        self._clients: dict[str, TesmartClient] = {}
+        self._clients_lock = threading.Lock()
+        self._last_active: dict[str, int] = {}
 
         self.switch_input_holder = ActionHolder(
             plugin_base=self,
@@ -44,45 +43,54 @@ class TesmartController(PluginBase):
             app_version="1.1.1-alpha"
         )
 
-        self._poll_thread = threading.Thread(target=self._poll_loop, daemon=True)
-        self._poll_thread.start()
+    def get_client(self, ip: str) -> TesmartClient:
+        with self._clients_lock:
+            if ip not in self._clients:
+                self._clients[ip] = TesmartClient(
+                    ip,
+                    on_input_change=lambda active: self._on_input_change(ip, active),
+                )
+            return self._clients[ip]
 
-    def register_action(self, action: "SwitchInputAction") -> None:
+    def register_action(self, action: SwitchInputAction) -> None:
+        ip = action.get_ip()
         with self._actions_lock:
             if action not in self._actions:
                 self._actions.append(action)
-        self._poll_event.set()  # wake the poll thread immediately
+        self.get_client(ip)
+        if ip in self._last_active:
+            GLib.idle_add(action.update_active_state, self._last_active[ip])
 
-    def trigger_poll(self) -> None:
-        self._poll_event.set()
-
-    def notify_active_input(self, active_input: int) -> None:
-        with self._actions_lock:
-            actions_snapshot = list(self._actions)
-        for action in actions_snapshot:
-            GLib.idle_add(action.update_active_state, active_input)
-
-    def unregister_action(self, action: "SwitchInputAction") -> None:
+    def unregister_action(self, action: SwitchInputAction) -> None:
+        ip = action.get_ip()
         with self._actions_lock:
             if action in self._actions:
                 self._actions.remove(action)
+            still_used = any(a.get_ip() == ip for a in self._actions)
+        if not still_used:
+            with self._clients_lock:
+                client = self._clients.pop(ip, None)
+            if client:
+                client.stop()
 
-    def _poll_loop(self) -> None:
-        while True:
-            with self._actions_lock:
-                actions_snapshot = list(self._actions)
+    def handle_ip_change(self, action: SwitchInputAction, old_ip: str, new_ip: str) -> None:
+        with self._actions_lock:
+            still_used = any(a is not action and a.get_ip() == old_ip for a in self._actions)
+        if not still_used:
+            with self._clients_lock:
+                client = self._clients.pop(old_ip, None)
+            if client:
+                client.stop()
+        self.get_client(new_ip)
+        if new_ip in self._last_active:
+            GLib.idle_add(action.update_active_state, self._last_active[new_ip])
 
-            by_ip: dict[str, list] = {}
-            for action in actions_snapshot:
-                by_ip.setdefault(action.get_ip(), []).append(action)
+    def notify_active_input(self, ip: str, active_input: int) -> None:
+        with self._actions_lock:
+            actions_snapshot = [a for a in self._actions if a.get_ip() == ip]
+        for action in actions_snapshot:
+            GLib.idle_add(action.update_active_state, active_input)
 
-            for ip, actions in by_ip.items():
-                try:
-                    active = TesmartClient(ip).get_active_input()
-                    for action in actions:
-                        GLib.idle_add(action.update_active_state, active)
-                except Exception:
-                    pass
-
-            self._poll_event.wait(POLL_INTERVAL)
-            self._poll_event.clear()
+    def _on_input_change(self, ip: str, active_input: int) -> None:
+        self._last_active[ip] = active_input
+        self.notify_active_input(ip, active_input)
