@@ -21,6 +21,7 @@ class TesmartController(PluginBase):
         self._actions_lock = threading.Lock()
         self._clients: dict[str, TesmartClient] = {}
         self._clients_lock = threading.Lock()
+        self._last_active: dict[str, int] = {}
 
         self.switch_input_holder = ActionHolder(
             plugin_base=self,
@@ -52,10 +53,13 @@ class TesmartController(PluginBase):
             return self._clients[ip]
 
     def register_action(self, action: "SwitchInputAction") -> None:
+        ip = action.get_ip()
         with self._actions_lock:
             if action not in self._actions:
                 self._actions.append(action)
-        self.get_client(action.get_ip())  # ensure a client exists for this IP
+        self.get_client(ip)
+        if ip in self._last_active:
+            GLib.idle_add(action.update_active_state, self._last_active[ip])
 
     def unregister_action(self, action: "SwitchInputAction") -> None:
         ip = action.get_ip()
@@ -76,4 +80,5 @@ class TesmartController(PluginBase):
             GLib.idle_add(action.update_active_state, active_input)
 
     def _on_input_change(self, ip: str, active_input: int) -> None:
+        self._last_active[ip] = active_input
         self.notify_active_input(ip, active_input)
