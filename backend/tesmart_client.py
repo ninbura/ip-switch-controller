@@ -46,6 +46,8 @@ class TesmartClient:
         self._on_input_change = on_input_change
         self._sock: Optional[socket.socket] = None
         self._sock_lock = threading.Lock()
+        self._pending_switch: Optional[int] = None
+        self._pending_lock = threading.Lock()
         self._running = True
         self._thread = threading.Thread(target=self._run, daemon=True)
         self._thread.start()
@@ -62,6 +64,8 @@ class TesmartClient:
             if time.time() >= deadline:
                 raise ConnectionError(f"Not connected to {self.ip}")
             time.sleep(0.05)
+        with self._pending_lock:
+            self._pending_switch = input_number
         sock.sendall(bytes([0xAA, 0xBB, 0x03, 0x01, input_number, 0xEE]))
 
     def stop(self) -> None:
@@ -75,6 +79,7 @@ class TesmartClient:
         while self._running:
             try:
                 sock = socket.create_connection((self.ip, self.port), timeout=5)
+                sock.settimeout(None)  # blocking recv — never time out waiting for broadcasts
             except Exception as e:
                 _log(f"connection to {self.ip}:{self.port} failed: {e}")
                 time.sleep(RECONNECT_DELAY)
@@ -100,7 +105,6 @@ class TesmartClient:
     def _listen(self, sock: socket.socket) -> None:
         buffer = b""
 
-        # One initial query to get the current active input on connect
         try:
             sock.sendall(QUERY_COMMAND)
             _log(f"sent initial query to {self.ip}")
@@ -108,7 +112,6 @@ class TesmartClient:
             _log(f"initial query to {self.ip} failed: {e}")
             return
 
-        # Passive listener — the switch broadcasts 0x11 on every input change
         while self._running:
             try:
                 data = sock.recv(256)
@@ -127,10 +130,26 @@ class TesmartClient:
     def _handle_packet(self, packet: bytes) -> None:
         _log(f"packet {self.ip}: {packet.hex()}")
         if packet[0] != PACKET_HEADER[0] or packet[1] != PACKET_HEADER[1]:
-            _log(f"invalid packet header, skipping")
+            _log("invalid header, skipping")
             return
-        if packet[3] == FEEDBACK_OPCODE:
-            active_input = packet[4]  # already 1-indexed
-            _log(f"active input on {self.ip}: {active_input}")
-            if self._on_input_change:
-                self._on_input_change(active_input)
+        if packet[3] != FEEDBACK_OPCODE:
+            return
+
+        raw_input = packet[4]
+
+        with self._pending_lock:
+            pending = self._pending_switch
+            self._pending_switch = None
+
+        if pending is not None:
+            # This packet is the ACK to our own switch command.
+            # The switch's ACK byte may not be reliable — use the value we sent.
+            active_input = pending
+            _log(f"{self.ip}: switch ACK, confirming input {active_input}")
+        else:
+            # Unsolicited broadcast — trust the packet.
+            active_input = raw_input
+            _log(f"{self.ip}: broadcast, active input {active_input}")
+
+        if self._on_input_change:
+            self._on_input_change(active_input)
