@@ -15,14 +15,25 @@ from gi.repository import Gtk, Adw
 DEFAULT_IP = "192.168.1.10"
 DEFAULT_INPUT = 1
 MAX_INPUTS = 16
+DEFAULT_INACTIVE_COLOR = "#000000"
+DEFAULT_ACTIVE_COLOR = "#C8C8C8"
 SETTINGS_KEY_IP = "ip"
 SETTINGS_KEY_INPUT = "input_number"
-COLOR_ACTIVE = [0, 180, 0, 255]
-COLOR_INACTIVE = [0, 0, 0, 0]
+SETTINGS_KEY_INACTIVE_COLOR = "inactive_color"
+SETTINGS_KEY_ACTIVE_COLOR = "active_color"
 
 
 def _input_label(number: int) -> str:
     return f"Input {number}"
+
+
+def _parse_color(hex_str: str) -> list[int]:
+    """Convert '#RRGGBB' or 'RRGGBB' to [R, G, B, 255]. Returns black on invalid input."""
+    try:
+        h = hex_str.lstrip("#")
+        return [int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16), 255]
+    except Exception:
+        return [0, 0, 0, 255]
 
 
 class SwitchInputAction(ActionBase):
@@ -31,8 +42,6 @@ class SwitchInputAction(ActionBase):
         self.has_configuration = True
 
     def on_ready(self) -> None:
-        icon_path = os.path.join(self.plugin_base.PATH, "assets", "info.png")
-        self.set_media(media_path=icon_path, size=0.75)
         settings = self.get_settings()
         number = settings.get(SETTINGS_KEY_INPUT, DEFAULT_INPUT)
         self.set_bottom_label(_input_label(number))
@@ -48,9 +57,10 @@ class SwitchInputAction(ActionBase):
         settings = self.get_settings()
         number = settings.get(SETTINGS_KEY_INPUT, DEFAULT_INPUT)
         if number == active_input:
-            self.set_background_color(COLOR_ACTIVE)
+            color = _parse_color(settings.get(SETTINGS_KEY_ACTIVE_COLOR, DEFAULT_ACTIVE_COLOR))
         else:
-            self.set_background_color(COLOR_INACTIVE)
+            color = _parse_color(settings.get(SETTINGS_KEY_INACTIVE_COLOR, DEFAULT_INACTIVE_COLOR))
+        self.set_background_color(color)
 
     def on_key_down(self) -> None:
         settings = self.get_settings()
@@ -76,7 +86,15 @@ class SwitchInputAction(ActionBase):
         self.input_selector.set_selected(settings.get(SETTINGS_KEY_INPUT, DEFAULT_INPUT) - 1)
         self.input_selector.connect("notify::selected", self.on_input_changed)
 
-        return [self.ip_entry, self.input_selector]
+        self.inactive_color_entry = Adw.EntryRow(title="Inactive Color (hex)")
+        self.inactive_color_entry.set_text(settings.get(SETTINGS_KEY_INACTIVE_COLOR, DEFAULT_INACTIVE_COLOR))
+        self.inactive_color_entry.connect("changed", self.on_inactive_color_changed)
+
+        self.active_color_entry = Adw.EntryRow(title="Active Color (hex)")
+        self.active_color_entry.set_text(settings.get(SETTINGS_KEY_ACTIVE_COLOR, DEFAULT_ACTIVE_COLOR))
+        self.active_color_entry.connect("changed", self.on_active_color_changed)
+
+        return [self.ip_entry, self.input_selector, self.inactive_color_entry, self.active_color_entry]
 
     def on_ip_changed(self, entry) -> None:
         settings = self.get_settings()
@@ -89,3 +107,13 @@ class SwitchInputAction(ActionBase):
         settings[SETTINGS_KEY_INPUT] = number
         self.set_settings(settings)
         self.set_bottom_label(_input_label(number))
+
+    def on_inactive_color_changed(self, entry) -> None:
+        settings = self.get_settings()
+        settings[SETTINGS_KEY_INACTIVE_COLOR] = entry.get_text()
+        self.set_settings(settings)
+
+    def on_active_color_changed(self, entry) -> None:
+        settings = self.get_settings()
+        settings[SETTINGS_KEY_ACTIVE_COLOR] = entry.get_text()
+        self.set_settings(settings)
