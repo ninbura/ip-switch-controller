@@ -118,7 +118,6 @@ class TesmartClient:
                 if not data:
                     _log(f"connection to {self.ip} closed by server")
                     break
-                _log(f"recv {self.ip}: {data.hex()}")
                 buffer += data
                 while len(buffer) >= PACKET_LENGTH:
                     self._handle_packet(buffer[:PACKET_LENGTH])
@@ -128,9 +127,7 @@ class TesmartClient:
                 break
 
     def _handle_packet(self, packet: bytes) -> None:
-        _log(f"packet {self.ip}: {packet.hex()}")
         if packet[0] != PACKET_HEADER[0] or packet[1] != PACKET_HEADER[1]:
-            _log("invalid header, skipping")
             return
         if packet[3] != FEEDBACK_OPCODE:
             return
@@ -141,15 +138,7 @@ class TesmartClient:
             pending = self._pending_switch
             self._pending_switch = None
 
-        if pending is not None:
-            # This packet is the ACK to our own switch command.
-            # The switch's ACK byte may not be reliable — use the value we sent.
-            active_input = pending
-            _log(f"{self.ip}: switch ACK, confirming input {active_input}")
-        else:
-            # Unsolicited broadcast — trust the packet.
-            active_input = raw_input
-            _log(f"{self.ip}: broadcast, active input {active_input}")
+        active_input = pending if pending is not None else raw_input
 
         if self._on_input_change:
             self._on_input_change(active_input)

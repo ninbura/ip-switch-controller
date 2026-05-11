@@ -69,7 +69,7 @@ class SwitchInputAction(ActionBase):
     def on_key_down(self) -> None:
         settings = self.get_settings()
         number = settings.get(SETTINGS_KEY_INPUT, DEFAULT_INPUT)
-        ip = self.get_ip()
+        ip = settings.get(SETTINGS_KEY_IP, DEFAULT_IP)
         try:
             self.plugin_base.get_client(ip).switch_to(number)
             self.plugin_base.notify_active_input(ip, number)

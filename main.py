@@ -52,7 +52,7 @@ class TesmartController(PluginBase):
                 )
             return self._clients[ip]
 
-    def register_action(self, action: "SwitchInputAction") -> None:
+    def register_action(self, action: SwitchInputAction) -> None:
         ip = action.get_ip()
         with self._actions_lock:
             if action not in self._actions:
@@ -61,7 +61,7 @@ class TesmartController(PluginBase):
         if ip in self._last_active:
             GLib.idle_add(action.update_active_state, self._last_active[ip])
 
-    def unregister_action(self, action: "SwitchInputAction") -> None:
+    def unregister_action(self, action: SwitchInputAction) -> None:
         ip = action.get_ip()
         with self._actions_lock:
             if action in self._actions:
