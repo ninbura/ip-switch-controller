@@ -35,7 +35,7 @@ class IpSwitchController(PluginBase):
         self._tesmart_clients_lock = threading.Lock()
         self._tesmart_last_active: dict[str, int] = {}
 
-        # VRROOM state
+        # HDFury state
         self._hdfury_actions: list[HDFurySwitchInput] = []
         self._hdfury_actions_lock = threading.Lock()
         self._hdfury_clients: dict[tuple, HDFuryClient] = {}
@@ -68,7 +68,7 @@ class IpSwitchController(PluginBase):
             plugin_base=self,
             action_base=HDFurySwitchInput,
             action_id="dev_ninbura_IpSwitchController::HDFurySwitchInput",
-            action_name="VRROOM: Switch Input",
+            action_name="HDFury: Switch Input",
             action_support=action_support,
         ))
 
@@ -128,7 +128,7 @@ class IpSwitchController(PluginBase):
         self._tesmart_last_active[ip] = active_input
         self.notify_active_input(ip, active_input)
 
-    # ── VRROOM ───────────────────────────────────────────────────────────────
+    # ── HDFury ───────────────────────────────────────────────────────────────
 
     def get_hdfury_client(self, ip: str, port: int) -> HDFuryClient:
         key = (ip, port)
