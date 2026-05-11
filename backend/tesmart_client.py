@@ -135,7 +135,7 @@ class TesmartClient:
         if packet[3] != FEEDBACK_OPCODE:
             return
 
-        raw_input = packet[4]
+        raw_input = packet[4] + 1  # 0-indexed in protocol, 1-indexed everywhere else
 
         with self._pending_lock:
             pending = self._pending_switch
