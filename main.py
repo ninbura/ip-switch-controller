@@ -9,88 +9,187 @@ from src.backend.PluginManager.ActionHolder import ActionHolder
 from src.backend.PluginManager.ActionInputSupport import ActionInputSupport
 from src.backend.DeckManagement.InputIdentifier import Input
 
-from .actions.SwitchInputAction.SwitchInputAction import SwitchInputAction
+from .actions.tesmart.SwitchInput import TesmartSwitchInput
+from .actions.hdfury.SwitchInput import HDFurySwitchInput
 from .backend.tesmart_client import TesmartClient
+from .backend.hdfury_client import HDFuryClient
 
 
-class TesmartController(PluginBase):
+class IpSwitchController(PluginBase):
     def __init__(self):
         super().__init__()
 
-        self._actions: list[SwitchInputAction] = []
-        self._actions_lock = threading.Lock()
-        self._clients: dict[str, TesmartClient] = {}
-        self._clients_lock = threading.Lock()
-        self._last_active: dict[str, int] = {}
+        # TeSmart state
+        self._tesmart_actions: list[TesmartSwitchInput] = []
+        self._tesmart_actions_lock = threading.Lock()
+        self._tesmart_clients: dict[str, TesmartClient] = {}
+        self._tesmart_clients_lock = threading.Lock()
+        self._tesmart_last_active: dict[str, int] = {}
 
-        self.switch_input_holder = ActionHolder(
-            plugin_base=self,
-            action_base=SwitchInputAction,
-            action_id="dev_ninbura_TesmartController::SwitchInput",
-            action_name="Switch Input",
-            action_support={
-                Input.Key: ActionInputSupport.SUPPORTED,
-                Input.Dial: ActionInputSupport.UNSUPPORTED,
-                Input.Touchscreen: ActionInputSupport.UNSUPPORTED,
-            },
-        )
-        self.add_action_holder(self.switch_input_holder)
+        # VRROOM state
+        self._hdfury_actions: list[HDFurySwitchInput] = []
+        self._hdfury_actions_lock = threading.Lock()
+        self._hdfury_clients: dict[tuple, HDFuryClient] = {}
+        self._hdfury_clients_lock = threading.Lock()
+        self._hdfury_last_active: dict[tuple, int] = {}  # keyed by (ip, port, output)
+
+        self._register_action_holders()
 
         self.register(
-            plugin_name="TeSmart Controller",
+            plugin_name="IP Switch Controller",
             github_repo="https://github.com/ninbura/tesmart-controller",
             plugin_version="1.0.0",
             app_version="1.1.1-alpha"
         )
 
+    def _register_action_holders(self) -> None:
+        action_support = {
+            Input.Key: ActionInputSupport.SUPPORTED,
+            Input.Dial: ActionInputSupport.UNSUPPORTED,
+            Input.Touchscreen: ActionInputSupport.UNSUPPORTED,
+        }
+        self.add_action_holder(ActionHolder(
+            plugin_base=self,
+            action_base=TesmartSwitchInput,
+            action_id="dev_ninbura_IpSwitchController::TesmartSwitchInput",
+            action_name="TeSmart: Switch Input",
+            action_support=action_support,
+        ))
+        self.add_action_holder(ActionHolder(
+            plugin_base=self,
+            action_base=HDFurySwitchInput,
+            action_id="dev_ninbura_IpSwitchController::HDFurySwitchInput",
+            action_name="VRROOM: Switch Input",
+            action_support=action_support,
+        ))
+
+    # ── TeSmart ──────────────────────────────────────────────────────────────
+
     def get_client(self, ip: str) -> TesmartClient:
-        with self._clients_lock:
-            if ip not in self._clients:
-                self._clients[ip] = TesmartClient(
+        with self._tesmart_clients_lock:
+            if ip not in self._tesmart_clients:
+                self._tesmart_clients[ip] = TesmartClient(
                     ip,
-                    on_input_change=lambda active: self._on_input_change(ip, active),
+                    on_input_change=lambda active: self._on_tesmart_input_change(ip, active),
                 )
-            return self._clients[ip]
+            return self._tesmart_clients[ip]
 
-    def register_action(self, action: SwitchInputAction) -> None:
+    def register_action(self, action: TesmartSwitchInput) -> None:
         ip = action.get_ip()
-        with self._actions_lock:
-            if action not in self._actions:
-                self._actions.append(action)
-        self.get_client(ip)
-        if ip in self._last_active:
-            GLib.idle_add(action.update_active_state, self._last_active[ip])
+        with self._tesmart_actions_lock:
+            if action not in self._tesmart_actions:
+                self._tesmart_actions.append(action)
+        if ip:
+            self.get_client(ip)
+        if ip in self._tesmart_last_active:
+            GLib.idle_add(action.update_active_state, self._tesmart_last_active[ip])
 
-    def unregister_action(self, action: SwitchInputAction) -> None:
+    def unregister_action(self, action: TesmartSwitchInput) -> None:
         ip = action.get_ip()
-        with self._actions_lock:
-            if action in self._actions:
-                self._actions.remove(action)
-            still_used = any(a.get_ip() == ip for a in self._actions)
+        with self._tesmart_actions_lock:
+            if action in self._tesmart_actions:
+                self._tesmart_actions.remove(action)
+            still_used = any(a.get_ip() == ip for a in self._tesmart_actions)
         if not still_used:
-            with self._clients_lock:
-                client = self._clients.pop(ip, None)
+            with self._tesmart_clients_lock:
+                client = self._tesmart_clients.pop(ip, None)
             if client:
                 client.stop()
-
-    def handle_ip_change(self, action: SwitchInputAction, old_ip: str, new_ip: str) -> None:
-        with self._actions_lock:
-            still_used = any(a is not action and a.get_ip() == old_ip for a in self._actions)
-        if not still_used:
-            with self._clients_lock:
-                client = self._clients.pop(old_ip, None)
-            if client:
-                client.stop()
-        self.get_client(new_ip)
-        if new_ip in self._last_active:
-            GLib.idle_add(action.update_active_state, self._last_active[new_ip])
 
     def notify_active_input(self, ip: str, active_input: int) -> None:
-        with self._actions_lock:
-            actions_snapshot = [a for a in self._actions if a.get_ip() == ip]
-        for action in actions_snapshot:
+        with self._tesmart_actions_lock:
+            snapshot = [a for a in self._tesmart_actions if a.get_ip() == ip]
+        for action in snapshot:
             GLib.idle_add(action.update_active_state, active_input)
 
-    def _on_input_change(self, ip: str, active_input: int) -> None:
-        self._last_active[ip] = active_input
+    def handle_ip_change(self, action: TesmartSwitchInput, old_ip: str, new_ip: str) -> None:
+        with self._tesmart_actions_lock:
+            still_used = any(a is not action and a.get_ip() == old_ip for a in self._tesmart_actions)
+        if not still_used:
+            with self._tesmart_clients_lock:
+                client = self._tesmart_clients.pop(old_ip, None)
+            if client:
+                client.stop()
+        if new_ip:
+            self.get_client(new_ip)
+        if new_ip in self._tesmart_last_active:
+            GLib.idle_add(action.update_active_state, self._tesmart_last_active[new_ip])
+
+    def _on_tesmart_input_change(self, ip: str, active_input: int) -> None:
+        self._tesmart_last_active[ip] = active_input
         self.notify_active_input(ip, active_input)
+
+    # ── VRROOM ───────────────────────────────────────────────────────────────
+
+    def get_hdfury_client(self, ip: str, port: int) -> HDFuryClient:
+        key = (ip, port)
+        with self._hdfury_clients_lock:
+            if key not in self._hdfury_clients:
+                self._hdfury_clients[key] = HDFuryClient(
+                    ip, port,
+                    on_tx0_change=lambda n: self._on_hdfury_output_change(ip, port, "tx0", n),
+                    on_tx1_change=lambda n: self._on_hdfury_output_change(ip, port, "tx1", n),
+                )
+            return self._hdfury_clients[key]
+
+    def register_hdfury_action(self, action: HDFurySwitchInput) -> None:
+        ip, port, output = action.get_ip(), action.get_port(), action.get_output()
+        with self._hdfury_actions_lock:
+            if action not in self._hdfury_actions:
+                self._hdfury_actions.append(action)
+        if ip:
+            self.get_hdfury_client(ip, port)
+        cache_key = (ip, port, output)
+        if cache_key in self._hdfury_last_active:
+            GLib.idle_add(action.update_active_state, self._hdfury_last_active[cache_key])
+
+    def unregister_hdfury_action(self, action: HDFurySwitchInput) -> None:
+        ip, port = action.get_ip(), action.get_port()
+        with self._hdfury_actions_lock:
+            if action in self._hdfury_actions:
+                self._hdfury_actions.remove(action)
+            still_used = any(a.get_ip() == ip and a.get_port() == port for a in self._hdfury_actions)
+        if not still_used:
+            with self._hdfury_clients_lock:
+                client = self._hdfury_clients.pop((ip, port), None)
+            if client:
+                client.stop()
+
+    def notify_hdfury_output(self, ip: str, port: int, output: str, active_input: int) -> None:
+        self._on_hdfury_output_change(ip, port, output, active_input)
+
+    def handle_hdfury_connection_change(
+        self,
+        action: HDFurySwitchInput,
+        old_ip: str,
+        old_port: int,
+        new_ip: str,
+        new_port: int,
+    ) -> None:
+        old_key = (old_ip, old_port)
+        with self._hdfury_actions_lock:
+            still_used = any(
+                a is not action and a.get_ip() == old_ip and a.get_port() == old_port
+                for a in self._hdfury_actions
+            )
+        if not still_used:
+            with self._hdfury_clients_lock:
+                client = self._hdfury_clients.pop(old_key, None)
+            if client:
+                client.stop()
+        if new_ip:
+            self.get_hdfury_client(new_ip, new_port)
+        cache_key = (new_ip, new_port, action.get_output())
+        if cache_key in self._hdfury_last_active:
+            GLib.idle_add(action.update_active_state, self._hdfury_last_active[cache_key])
+
+    def _on_hdfury_output_change(self, ip: str, port: int, output: str, active_input: int) -> None:
+        cache_key = (ip, port, output)
+        self._hdfury_last_active[cache_key] = active_input
+        with self._hdfury_actions_lock:
+            snapshot = [
+                a for a in self._hdfury_actions
+                if a.get_ip() == ip and a.get_port() == port and a.get_output() == output
+            ]
+        for action in snapshot:
+            GLib.idle_add(action.update_active_state, active_input)
