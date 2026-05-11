@@ -49,10 +49,10 @@ class TESmartSwitchInput(ActionBase):
         settings = self.get_settings()
         number = settings.get(SETTINGS_KEY_INPUT, DEFAULT_INPUT)
         self.set_center_label(_input_label(number), font_size=DEFAULT_LABEL_SIZE)
-        self.plugin_base.register_tesmart_action(self)
+        self.plugin_base.tesmart.register_action(self)
 
     def on_removed_from_cache(self) -> None:
-        self.plugin_base.unregister_tesmart_action(self)
+        self.plugin_base.tesmart.unregister_action(self)
 
     def get_ip(self) -> str:
         return self.get_settings().get(SETTINGS_KEY_IP, DEFAULT_IP)
@@ -79,8 +79,8 @@ class TESmartSwitchInput(ActionBase):
             self.show_error(duration=2)
             return
         try:
-            self.plugin_base.get_tesmart_client(ip, port).switch_to(number)
-            self.plugin_base.notify_tesmart_input(ip, port, number)
+            self.plugin_base.tesmart.get_client(ip, port).switch_to(number)
+            self.plugin_base.tesmart.notify_input(ip, port, number)
         except Exception:
             self.show_error(duration=2)
 
@@ -121,7 +121,7 @@ class TESmartSwitchInput(ActionBase):
         settings[SETTINGS_KEY_IP] = new_ip
         self.set_settings(settings)
         if old_ip != new_ip:
-            self.plugin_base.handle_tesmart_connection_change(self, old_ip, old_port, new_ip, old_port)
+            self.plugin_base.tesmart.handle_connection_change(self, old_ip, old_port, new_ip, old_port)
 
     def on_port_changed(self, entry) -> None:
         settings = self.get_settings()
@@ -134,7 +134,7 @@ class TESmartSwitchInput(ActionBase):
         settings[SETTINGS_KEY_PORT] = new_port
         self.set_settings(settings)
         if old_port != new_port:
-            self.plugin_base.handle_tesmart_connection_change(self, old_ip, old_port, old_ip, new_port)
+            self.plugin_base.tesmart.handle_connection_change(self, old_ip, old_port, old_ip, new_port)
 
     def on_input_changed(self, combo, _param) -> None:
         settings = self.get_settings()

@@ -54,10 +54,10 @@ class HDFurySwitchInput(ActionBase):
         settings = self.get_settings()
         number = settings.get(SETTINGS_KEY_INPUT, DEFAULT_INPUT)
         self.set_center_label(_input_label(number), font_size=DEFAULT_LABEL_SIZE)
-        self.plugin_base.register_hdfury_action(self)
+        self.plugin_base.hdfury.register_action(self)
 
     def on_removed_from_cache(self) -> None:
-        self.plugin_base.unregister_hdfury_action(self)
+        self.plugin_base.hdfury.unregister_action(self)
 
     def get_ip(self) -> str:
         return self.get_settings().get(SETTINGS_KEY_IP, DEFAULT_IP)
@@ -88,8 +88,8 @@ class HDFurySwitchInput(ActionBase):
             self.show_error(duration=2)
             return
         try:
-            self.plugin_base.get_hdfury_client(ip, port).switch_to(output, number)
-            self.plugin_base.notify_hdfury_output(ip, port, output, number)
+            self.plugin_base.hdfury.get_client(ip, port).switch_to(output, number)
+            self.plugin_base.hdfury.notify_output(ip, port, output, number)
         except Exception:
             self.show_error(duration=2)
 
@@ -138,7 +138,7 @@ class HDFurySwitchInput(ActionBase):
         settings[SETTINGS_KEY_IP] = new_ip
         self.set_settings(settings)
         if old_ip != new_ip:
-            self.plugin_base.handle_hdfury_connection_change(self, old_ip, old_port, new_ip, old_port)
+            self.plugin_base.hdfury.handle_connection_change(self, old_ip, old_port, new_ip, old_port)
 
     def on_port_changed(self, entry) -> None:
         settings = self.get_settings()
@@ -151,7 +151,7 @@ class HDFurySwitchInput(ActionBase):
         settings[SETTINGS_KEY_PORT] = new_port
         self.set_settings(settings)
         if old_port != new_port:
-            self.plugin_base.handle_hdfury_connection_change(self, old_ip, old_port, old_ip, new_port)
+            self.plugin_base.hdfury.handle_connection_change(self, old_ip, old_port, old_ip, new_port)
 
     def on_output_changed(self, combo, _param) -> None:
         settings = self.get_settings()
