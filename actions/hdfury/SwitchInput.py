@@ -16,8 +16,8 @@ from gi.repository import Gtk, Adw
 DEFAULT_IP = ""
 DEFAULT_PORT = 2222
 DEFAULT_OUTPUT = "tx0"
-DEFAULT_INPUT = 1
-MAX_INPUTS = 4
+DEFAULT_INPUT = 0
+MAX_INPUTS = 4  # inputs 0..3
 DEFAULT_LABEL_SIZE = 20
 DEFAULT_INACTIVE_COLOR = "#000000"
 DEFAULT_ACTIVE_COLOR = "#006666"
@@ -113,10 +113,10 @@ class HDFurySwitchInput(ActionBase):
         self.output_selector.connect("notify::selected", self.on_output_changed)
 
         input_model = Gtk.StringList()
-        for i in range(1, MAX_INPUTS + 1):
+        for i in range(MAX_INPUTS):
             input_model.append(_input_label(i))
         self.input_selector = Adw.ComboRow(title="Switch to", model=input_model)
-        self.input_selector.set_selected(settings.get(SETTINGS_KEY_INPUT, DEFAULT_INPUT) - 1)
+        self.input_selector.set_selected(settings.get(SETTINGS_KEY_INPUT, DEFAULT_INPUT))
         self.input_selector.connect("notify::selected", self.on_input_changed)
 
         self.inactive_color_entry = Adw.EntryRow(title="Inactive Color (hex)")
@@ -162,7 +162,7 @@ class HDFurySwitchInput(ActionBase):
 
     def on_input_changed(self, combo, _param) -> None:
         settings = self.get_settings()
-        number = combo.get_selected() + 1
+        number = combo.get_selected()
         settings[SETTINGS_KEY_INPUT] = number
         self.set_settings(settings)
         self.set_center_label(_input_label(number), font_size=DEFAULT_LABEL_SIZE)

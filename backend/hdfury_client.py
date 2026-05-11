@@ -31,8 +31,8 @@ class HDFuryClient:
         self._thread.start()
 
     def switch_to(self, output: str, input_number: int) -> None:
-        if not 1 <= input_number <= MAX_INPUTS:
-            raise ValueError(f"input_number must be 1–{MAX_INPUTS}, got {input_number}")
+        if not 0 <= input_number < MAX_INPUTS:
+            raise ValueError(f"input_number must be 0–{MAX_INPUTS - 1}, got {input_number}")
         deadline = time.time() + SWITCH_TIMEOUT
         while True:
             with self._sock_lock:
