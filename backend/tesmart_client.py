@@ -13,7 +13,7 @@ PACKET_LENGTH = 6
 QUERY_COMMAND = bytes([0xAA, 0xBB, 0x03, 0x10, 0x00, 0xEE])
 
 
-class TesmartClient:
+class TESmartClient:
     def __init__(self, ip: str, port: int = 5000, on_input_change: Optional[Callable[[int], None]] = None):
         self.ip = ip
         self.port = port

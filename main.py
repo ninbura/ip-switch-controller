@@ -10,9 +10,9 @@ from src.backend.PluginManager.ActionHolder import ActionHolder
 from src.backend.PluginManager.ActionInputSupport import ActionInputSupport
 from src.backend.DeckManagement.InputIdentifier import Input
 
-from .actions.tesmart.SwitchInput import TesmartSwitchInput
+from .actions.tesmart.SwitchInput import TESmartSwitchInput
 from .actions.hdfury.SwitchInput import HDFurySwitchInput
-from .backend.tesmart_client import TesmartClient
+from .backend.tesmart_client import TESmartClient
 from .backend.hdfury_client import HDFuryClient
 
 
@@ -28,10 +28,10 @@ class IpSwitchController(PluginBase):
     def __init__(self):
         super().__init__()
 
-        # TeSmart state
-        self._tesmart_actions: list[TesmartSwitchInput] = []
+        # TESmart state
+        self._tesmart_actions: list[TESmartSwitchInput] = []
         self._tesmart_actions_lock = threading.Lock()
-        self._tesmart_clients: dict[tuple, TesmartClient] = {}
+        self._tesmart_clients: dict[tuple, TESmartClient] = {}
         self._tesmart_clients_lock = threading.Lock()
         self._tesmart_last_active: dict[tuple, int] = {}  # keyed by (ip, port)
 
@@ -59,9 +59,9 @@ class IpSwitchController(PluginBase):
         }
         self.add_action_holder(ActionHolder(
             plugin_base=self,
-            action_base=TesmartSwitchInput,
-            action_id="dev_ninbura_IpSwitchController::TesmartSwitchInput",
-            action_name="TeSmart: Switch Input",
+            action_base=TESmartSwitchInput,
+            action_id="dev_ninbura_IpSwitchController::TESmartSwitchInput",
+            action_name="TESmart: Switch Input",
             action_support=action_support,
         ))
         self.add_action_holder(ActionHolder(
@@ -72,19 +72,19 @@ class IpSwitchController(PluginBase):
             action_support=action_support,
         ))
 
-    # ── TeSmart ──────────────────────────────────────────────────────────────
+    # ── TESmart ──────────────────────────────────────────────────────────────
 
-    def get_tesmart_client(self, ip: str, port: int) -> TesmartClient:
+    def get_tesmart_client(self, ip: str, port: int) -> TESmartClient:
         key = (ip, port)
         with self._tesmart_clients_lock:
             if key not in self._tesmart_clients:
-                self._tesmart_clients[key] = TesmartClient(
+                self._tesmart_clients[key] = TESmartClient(
                     ip, port,
                     on_input_change=lambda active: self._on_tesmart_input_change(ip, port, active),
                 )
             return self._tesmart_clients[key]
 
-    def register_tesmart_action(self, action: TesmartSwitchInput) -> None:
+    def register_tesmart_action(self, action: TESmartSwitchInput) -> None:
         ip, port = action.get_ip(), action.get_port()
         with self._tesmart_actions_lock:
             if action not in self._tesmart_actions:
@@ -95,7 +95,7 @@ class IpSwitchController(PluginBase):
         if cache_key in self._tesmart_last_active:
             GLib.idle_add(action.update_active_state, self._tesmart_last_active[cache_key])
 
-    def unregister_tesmart_action(self, action: TesmartSwitchInput) -> None:
+    def unregister_tesmart_action(self, action: TESmartSwitchInput) -> None:
         ip, port = action.get_ip(), action.get_port()
         with self._tesmart_actions_lock:
             if action in self._tesmart_actions:
@@ -112,7 +112,7 @@ class IpSwitchController(PluginBase):
 
     def handle_tesmart_connection_change(
         self,
-        action: TesmartSwitchInput,
+        action: TESmartSwitchInput,
         old_ip: str,
         old_port: int,
         new_ip: str,

@@ -39,7 +39,7 @@ def _parse_color(hex_str: str) -> list[int]:
         return [0, 0, 0, 255]
 
 
-class TesmartSwitchInput(ActionBase):
+class TESmartSwitchInput(ActionBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.has_configuration = True
