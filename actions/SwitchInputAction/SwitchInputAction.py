@@ -1,5 +1,6 @@
 import os
 import sys
+from typing import Optional
 
 _plugin_root = os.path.realpath(os.path.join(os.path.dirname(__file__ or ""), "..", ".."))
 if _plugin_root not in sys.path:
@@ -16,7 +17,7 @@ DEFAULT_IP = "192.168.1.10"
 DEFAULT_INPUT = 1
 MAX_INPUTS = 16
 DEFAULT_INACTIVE_COLOR = "#000000"
-DEFAULT_ACTIVE_COLOR = "#202020"
+DEFAULT_ACTIVE_COLOR = "#006666"
 SETTINGS_KEY_IP = "ip"
 SETTINGS_KEY_INPUT = "input_number"
 SETTINGS_KEY_INACTIVE_COLOR = "inactive_color"
@@ -40,6 +41,7 @@ class SwitchInputAction(ActionBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.has_configuration = True
+        self._last_active_input: Optional[int] = None
 
     def on_ready(self) -> None:
         settings = self.get_settings()
@@ -54,6 +56,7 @@ class SwitchInputAction(ActionBase):
         return self.get_settings().get(SETTINGS_KEY_IP, DEFAULT_IP)
 
     def update_active_state(self, active_input: int) -> None:
+        self._last_active_input = active_input
         settings = self.get_settings()
         number = settings.get(SETTINGS_KEY_INPUT, DEFAULT_INPUT)
         if number == active_input:
@@ -112,8 +115,12 @@ class SwitchInputAction(ActionBase):
         settings = self.get_settings()
         settings[SETTINGS_KEY_INACTIVE_COLOR] = entry.get_text()
         self.set_settings(settings)
+        if self._last_active_input is not None:
+            self.update_active_state(self._last_active_input)
 
     def on_active_color_changed(self, entry) -> None:
         settings = self.get_settings()
         settings[SETTINGS_KEY_ACTIVE_COLOR] = entry.get_text()
         self.set_settings(settings)
+        if self._last_active_input is not None:
+            self.update_active_state(self._last_active_input)
