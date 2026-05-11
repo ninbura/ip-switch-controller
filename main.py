@@ -1,3 +1,4 @@
+import ipaddress
 import threading
 
 import gi
@@ -13,6 +14,14 @@ from .actions.tesmart.SwitchInput import TesmartSwitchInput
 from .actions.hdfury.SwitchInput import HDFurySwitchInput
 from .backend.tesmart_client import TesmartClient
 from .backend.hdfury_client import HDFuryClient
+
+
+def _is_valid_ip(ip: str) -> bool:
+    try:
+        ipaddress.ip_address(ip)
+        return True
+    except ValueError:
+        return False
 
 
 class IpSwitchController(PluginBase):
@@ -79,7 +88,7 @@ class IpSwitchController(PluginBase):
         with self._tesmart_actions_lock:
             if action not in self._tesmart_actions:
                 self._tesmart_actions.append(action)
-        if ip:
+        if _is_valid_ip(ip):
             self.get_client(ip)
         if ip in self._tesmart_last_active:
             GLib.idle_add(action.update_active_state, self._tesmart_last_active[ip])
@@ -110,7 +119,7 @@ class IpSwitchController(PluginBase):
                 client = self._tesmart_clients.pop(old_ip, None)
             if client:
                 client.stop()
-        if new_ip:
+        if _is_valid_ip(new_ip):
             self.get_client(new_ip)
         if new_ip in self._tesmart_last_active:
             GLib.idle_add(action.update_active_state, self._tesmart_last_active[new_ip])
@@ -137,7 +146,7 @@ class IpSwitchController(PluginBase):
         with self._hdfury_actions_lock:
             if action not in self._hdfury_actions:
                 self._hdfury_actions.append(action)
-        if ip:
+        if _is_valid_ip(ip):
             self.get_hdfury_client(ip, port)
         cache_key = (ip, port, output)
         if cache_key in self._hdfury_last_active:
@@ -177,7 +186,7 @@ class IpSwitchController(PluginBase):
                 client = self._hdfury_clients.pop(old_key, None)
             if client:
                 client.stop()
-        if new_ip:
+        if _is_valid_ip(new_ip):
             self.get_hdfury_client(new_ip, new_port)
         cache_key = (new_ip, new_port, action.get_output())
         if cache_key in self._hdfury_last_active:
