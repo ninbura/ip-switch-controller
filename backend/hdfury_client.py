@@ -7,7 +7,9 @@ from backend.logger import log as _log
 
 RECONNECT_DELAY = 2
 SWITCH_TIMEOUT = 3
+POLL_INTERVAL = 2
 MAX_INPUTS = 4
+QUERY_COMMANDS = b"get inseltx0\nget inseltx1\n"
 
 
 class HDFuryClient:
@@ -54,7 +56,7 @@ class HDFuryClient:
         while self._running:
             try:
                 sock = socket.create_connection((self.ip, self.port), timeout=5)
-                sock.settimeout(None)
+                sock.settimeout(POLL_INTERVAL)
             except Exception as e:
                 _log(f"hdfury connection to {self.ip}:{self.port} failed: {e}")
                 time.sleep(RECONNECT_DELAY)
@@ -79,8 +81,7 @@ class HDFuryClient:
 
     def _listen(self, sock: socket.socket) -> None:
         try:
-            sock.sendall(b"get inseltx0\n")
-            sock.sendall(b"get inseltx1\n")
+            sock.sendall(QUERY_COMMANDS)
         except Exception as e:
             _log(f"hdfury initial query to {self.ip} failed: {e}")
             return
@@ -93,11 +94,15 @@ class HDFuryClient:
                     _log(f"hdfury connection to {self.ip} closed by server")
                     break
                 text = data.decode("ascii", errors="ignore")
-                _log(f"hdfury recv {self.ip}: {text!r}")
                 buffer += text
                 while "\n" in buffer:
                     line, buffer = buffer.split("\n", 1)
                     self._handle_line(line.strip())
+            except socket.timeout:
+                try:
+                    sock.sendall(QUERY_COMMANDS)
+                except Exception:
+                    break
             except Exception as e:
                 _log(f"hdfury recv error on {self.ip}: {e}")
                 break

@@ -31,9 +31,9 @@ class IpSwitchController(PluginBase):
         # TeSmart state
         self._tesmart_actions: list[TesmartSwitchInput] = []
         self._tesmart_actions_lock = threading.Lock()
-        self._tesmart_clients: dict[str, TesmartClient] = {}
+        self._tesmart_clients: dict[tuple, TesmartClient] = {}
         self._tesmart_clients_lock = threading.Lock()
-        self._tesmart_last_active: dict[str, int] = {}
+        self._tesmart_last_active: dict[tuple, int] = {}  # keyed by (ip, port)
 
         # HDFury state
         self._hdfury_actions: list[HDFurySwitchInput] = []
@@ -74,59 +74,74 @@ class IpSwitchController(PluginBase):
 
     # ── TeSmart ──────────────────────────────────────────────────────────────
 
-    def get_client(self, ip: str) -> TesmartClient:
+    def get_tesmart_client(self, ip: str, port: int) -> TesmartClient:
+        key = (ip, port)
         with self._tesmart_clients_lock:
-            if ip not in self._tesmart_clients:
-                self._tesmart_clients[ip] = TesmartClient(
-                    ip,
-                    on_input_change=lambda active: self._on_tesmart_input_change(ip, active),
+            if key not in self._tesmart_clients:
+                self._tesmart_clients[key] = TesmartClient(
+                    ip, port,
+                    on_input_change=lambda active: self._on_tesmart_input_change(ip, port, active),
                 )
-            return self._tesmart_clients[ip]
+            return self._tesmart_clients[key]
 
-    def register_action(self, action: TesmartSwitchInput) -> None:
-        ip = action.get_ip()
+    def register_tesmart_action(self, action: TesmartSwitchInput) -> None:
+        ip, port = action.get_ip(), action.get_port()
         with self._tesmart_actions_lock:
             if action not in self._tesmart_actions:
                 self._tesmart_actions.append(action)
         if _is_valid_ip(ip):
-            self.get_client(ip)
-        if ip in self._tesmart_last_active:
-            GLib.idle_add(action.update_active_state, self._tesmart_last_active[ip])
+            self.get_tesmart_client(ip, port)
+        cache_key = (ip, port)
+        if cache_key in self._tesmart_last_active:
+            GLib.idle_add(action.update_active_state, self._tesmart_last_active[cache_key])
 
-    def unregister_action(self, action: TesmartSwitchInput) -> None:
-        ip = action.get_ip()
+    def unregister_tesmart_action(self, action: TesmartSwitchInput) -> None:
+        ip, port = action.get_ip(), action.get_port()
         with self._tesmart_actions_lock:
             if action in self._tesmart_actions:
                 self._tesmart_actions.remove(action)
-            still_used = any(a.get_ip() == ip for a in self._tesmart_actions)
+            still_used = any(a.get_ip() == ip and a.get_port() == port for a in self._tesmart_actions)
         if not still_used:
             with self._tesmart_clients_lock:
-                client = self._tesmart_clients.pop(ip, None)
+                client = self._tesmart_clients.pop((ip, port), None)
             if client:
                 client.stop()
 
-    def notify_active_input(self, ip: str, active_input: int) -> None:
-        with self._tesmart_actions_lock:
-            snapshot = [a for a in self._tesmart_actions if a.get_ip() == ip]
-        for action in snapshot:
-            GLib.idle_add(action.update_active_state, active_input)
+    def notify_tesmart_input(self, ip: str, port: int, active_input: int) -> None:
+        self._on_tesmart_input_change(ip, port, active_input)
 
-    def handle_ip_change(self, action: TesmartSwitchInput, old_ip: str, new_ip: str) -> None:
+    def handle_tesmart_connection_change(
+        self,
+        action: TesmartSwitchInput,
+        old_ip: str,
+        old_port: int,
+        new_ip: str,
+        new_port: int,
+    ) -> None:
+        old_key = (old_ip, old_port)
         with self._tesmart_actions_lock:
-            still_used = any(a is not action and a.get_ip() == old_ip for a in self._tesmart_actions)
+            still_used = any(
+                a is not action and a.get_ip() == old_ip and a.get_port() == old_port
+                for a in self._tesmart_actions
+            )
         if not still_used:
             with self._tesmart_clients_lock:
-                client = self._tesmart_clients.pop(old_ip, None)
+                client = self._tesmart_clients.pop(old_key, None)
             if client:
                 client.stop()
         if _is_valid_ip(new_ip):
-            self.get_client(new_ip)
-        if new_ip in self._tesmart_last_active:
-            GLib.idle_add(action.update_active_state, self._tesmart_last_active[new_ip])
+            self.get_tesmart_client(new_ip, new_port)
+        cache_key = (new_ip, new_port)
+        if cache_key in self._tesmart_last_active:
+            GLib.idle_add(action.update_active_state, self._tesmart_last_active[cache_key])
 
-    def _on_tesmart_input_change(self, ip: str, active_input: int) -> None:
-        self._tesmart_last_active[ip] = active_input
-        self.notify_active_input(ip, active_input)
+    def _on_tesmart_input_change(self, ip: str, port: int, active_input: int) -> None:
+        cache_key = (ip, port)
+        self._tesmart_last_active[cache_key] = active_input
+        with self._tesmart_actions_lock:
+            snapshot = [a for a in self._tesmart_actions if a.get_ip() == ip and a.get_port() == port]
+        for action in snapshot:
+            GLib.idle_add(action.update_active_state, active_input)
 
     # ── HDFury ───────────────────────────────────────────────────────────────
 
