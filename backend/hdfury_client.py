@@ -40,7 +40,7 @@ class HDFuryClient:
             if time.time() >= deadline:
                 raise ConnectionError(f"Not connected to {self.ip}:{self.port}")
             time.sleep(0.05)
-        cmd = f"set insel{output} {input_number - 1}\n"  # protocol is 0-indexed
+        cmd = f"set insel{output} {input_number}\n"
         sock.sendall(cmd.encode())
 
     def stop(self) -> None:
@@ -92,7 +92,9 @@ class HDFuryClient:
                 if not data:
                     _log(f"hdfury connection to {self.ip} closed by server")
                     break
-                buffer += data.decode("ascii", errors="ignore")
+                text = data.decode("ascii", errors="ignore")
+                _log(f"hdfury recv {self.ip}: {text!r}")
+                buffer += text
                 while "\n" in buffer:
                     line, buffer = buffer.split("\n", 1)
                     self._handle_line(line.strip())
@@ -106,7 +108,7 @@ class HDFuryClient:
             return
         output, raw = parts[0], parts[1]
         try:
-            active_input = int(raw) + 1  # 0-indexed in protocol, 1-indexed everywhere else
+            active_input = int(raw)
         except ValueError:
             return
         if output == "inseltx0" and self._on_tx0_change:
