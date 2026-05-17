@@ -3,10 +3,10 @@ from src.backend.PluginManager.ActionHolder import ActionHolder
 from src.backend.PluginManager.ActionInputSupport import ActionInputSupport
 from src.backend.DeckManagement.InputIdentifier import Input
 
-from .actions.tesmart.SwitchInput import TESmartSwitchInput
-from .actions.hdfury.SwitchInput import HDFurySwitchInput
-from .managers.tesmart_manager import TESmartManager
-from .managers.hdfury_manager import HDFuryManager
+from .features.tesmart.switch_input import TESmartSwitchInput
+from .features.hdfury.switch_input import HDFurySwitchInput
+from .features.tesmart.manager import TESmartManager
+from .features.hdfury.manager import HDFuryManager
 
 _ACTION_SUPPORT = {
     Input.Key: ActionInputSupport.SUPPORTED,

@@ -3,7 +3,7 @@ import threading
 import time
 from typing import Callable, Optional
 
-from backend.logger import log as _log
+from ...shared.logger import log as _log
 
 RECONNECT_DELAY = 2
 SWITCH_TIMEOUT = 3
@@ -93,8 +93,7 @@ class HDFuryClient:
                 if not data:
                     _log(f"hdfury connection to {self.ip} closed by server")
                     break
-                text = data.decode("ascii", errors="ignore")
-                buffer += text
+                buffer += data.decode("ascii", errors="ignore")
                 while "\n" in buffer:
                     line, buffer = buffer.split("\n", 1)
                     self._handle_line(line.strip())

@@ -6,10 +6,10 @@ import gi
 gi.require_version("Gtk", "4.0")
 from gi.repository import GLib
 
-from ..backend.tesmart_client import TESmartClient
+from .client import TESmartClient
 
 if TYPE_CHECKING:
-    from ..actions.tesmart.SwitchInput import TESmartSwitchInput
+    from .switch_input import TESmartSwitchInput
 
 
 def _is_valid_ip(ip: str) -> bool:
