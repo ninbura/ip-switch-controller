@@ -7,6 +7,7 @@ from ...shared.logger import log as _log
 
 RECONNECT_DELAY = 2
 SWITCH_TIMEOUT = 3
+KEEPALIVE_INTERVAL = 30
 FEEDBACK_OPCODE = 0x11
 PACKET_HEADER = (0xAA, 0xBB)
 PACKET_LENGTH = 6
@@ -53,7 +54,7 @@ class TESmartClient:
         while self._running:
             try:
                 sock = socket.create_connection((self.ip, self.port), timeout=5)
-                sock.settimeout(None)
+                sock.settimeout(KEEPALIVE_INTERVAL)
             except Exception as e:
                 _log(f"tesmart connection to {self.ip}:{self.port} failed: {e}")
                 time.sleep(RECONNECT_DELAY)
@@ -95,6 +96,12 @@ class TESmartClient:
                 while len(buffer) >= PACKET_LENGTH:
                     self._handle_packet(buffer[:PACKET_LENGTH])
                     buffer = buffer[PACKET_LENGTH:]
+            except TimeoutError:
+                try:
+                    sock.sendall(QUERY_COMMAND)
+                except Exception as e:
+                    _log(f"tesmart keepalive to {self.ip} failed: {e}")
+                    break
             except Exception as e:
                 _log(f"tesmart recv error on {self.ip}: {e}")
                 break
