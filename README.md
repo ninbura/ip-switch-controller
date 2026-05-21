@@ -22,5 +22,7 @@ Clone into your StreamController plugins directory:
 
 ```bash
 cd ~/.var/app/com.core447.StreamController/data/plugins
+```
+```bash
 git clone https://github.com/ninbura/ip-switch-controller
 ```
