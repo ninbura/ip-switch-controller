@@ -81,6 +81,7 @@ class TESmartSerialSwitchInput(ActionBase):
         port = settings.get(SETTINGS_KEY_SERIAL_PORT, DEFAULT_SERIAL_PORT)
         number = settings.get(SETTINGS_KEY_INPUT, DEFAULT_INPUT)
         if not port:
+            _log("tesmart serial: no port configured, cannot switch input")
             self.show_error(duration=2)
             return
         try:
