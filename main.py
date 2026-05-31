@@ -3,6 +3,7 @@ from src.backend.PluginManager.ActionHolder import ActionHolder
 from src.backend.PluginManager.ActionInputSupport import ActionInputSupport
 from src.backend.DeckManagement.InputIdentifier import Input
 
+from .shared.logger import log as _log
 from .features.tesmart.switch_input import TESmartSwitchInput
 from .features.tesmart.serial_switch_input import TESmartSerialSwitchInput
 from .features.hdfury.switch_input import HDFurySwitchInput
@@ -20,6 +21,12 @@ _ACTION_SUPPORT = {
 class IpSwitchController(PluginBase):
     def __init__(self):
         super().__init__()
+
+        try:
+            import serial
+            _log(f"pyserial {serial.VERSION} available")
+        except ImportError:
+            _log("pyserial not installed; serial actions will not work")
 
         self.tesmart = TESmartManager()
         self.tesmart_serial = TESmartSerialManager()
