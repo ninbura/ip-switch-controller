@@ -1,10 +1,13 @@
 import os
 import sys
+import traceback
 from typing import Optional
 
 _plugin_root = os.path.realpath(os.path.join(os.path.dirname(__file__ or ""), "..", ".."))
 if _plugin_root not in sys.path:
     sys.path.insert(0, _plugin_root)
+
+from ...shared.logger import log as _log
 
 from src.backend.PluginManager.ActionBase import ActionBase
 
@@ -84,6 +87,7 @@ class TESmartSerialSwitchInput(ActionBase):
             self.plugin_base.tesmart_serial.get_client(port).switch_to(number)
             self.plugin_base.tesmart_serial.notify_input(port, number)
         except Exception:
+            _log(f"tesmart serial switch to input {number} on {port} failed:\n{traceback.format_exc()}")
             self.show_error(duration=2)
 
     def get_config_rows(self) -> list:
