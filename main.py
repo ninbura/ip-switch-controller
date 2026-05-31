@@ -4,8 +4,10 @@ from src.backend.PluginManager.ActionInputSupport import ActionInputSupport
 from src.backend.DeckManagement.InputIdentifier import Input
 
 from .features.tesmart.switch_input import TESmartSwitchInput
+from .features.tesmart.serial_switch_input import TESmartSerialSwitchInput
 from .features.hdfury.switch_input import HDFurySwitchInput
 from .features.tesmart.manager import TESmartManager
+from .features.tesmart.serial_manager import TESmartSerialManager
 from .features.hdfury.manager import HDFuryManager
 
 _ACTION_SUPPORT = {
@@ -20,6 +22,7 @@ class IpSwitchController(PluginBase):
         super().__init__()
 
         self.tesmart = TESmartManager()
+        self.tesmart_serial = TESmartSerialManager()
         self.hdfury = HDFuryManager()
 
         self.add_action_holder(ActionHolder(
@@ -27,6 +30,13 @@ class IpSwitchController(PluginBase):
             action_base=TESmartSwitchInput,
             action_id="dev_ninbura_IpSwitchController::TESmartSwitchInput",
             action_name="TESmart: Switch Input",
+            action_support=_ACTION_SUPPORT,
+        ))
+        self.add_action_holder(ActionHolder(
+            plugin_base=self,
+            action_base=TESmartSerialSwitchInput,
+            action_id="dev_ninbura_IpSwitchController::TESmartSerialSwitchInput",
+            action_name="TESmart: Switch Input (Serial)",
             action_support=_ACTION_SUPPORT,
         ))
         self.add_action_holder(ActionHolder(
