@@ -15,12 +15,11 @@ READ_TIMEOUT = 1
 FEEDBACK_OPCODE = 0x11
 PACKET_HEADER = (0xAA, 0xBB)
 PACKET_LENGTH = 6
+QUERY_COMMAND = bytes([0xAA, 0xBB, 0x03, 0x10, 0x00, 0xEE])
 
 
 def _build_switch_packet(input_number: int) -> bytes:
-    n = input_number - 1  # 0-indexed on wire
-    checksum = (0xAA + 0xBB + 0x03 + 0x00 + n) & 0xFF
-    return bytes([0xAA, 0xBB, 0x03, 0x00, n, checksum])
+    return bytes([0xAA, 0xBB, 0x03, 0x01, input_number, 0xEE])
 
 
 class TESmartSerialClient:
@@ -99,6 +98,11 @@ class TESmartSerialClient:
 
     def _listen(self, ser: "serial.Serial") -> None:
         buffer = b""
+        try:
+            ser.write(QUERY_COMMAND)
+        except Exception as e:
+            _log(f"tesmart serial initial query to {self.port} failed: {e}")
+            return
         while self._running:
             try:
                 data = ser.read(1)
