@@ -35,7 +35,7 @@ To use the **TESmart: Switch Input (Serial)** action, run the setup script once 
 ./setup.sh
 ```
 
-This creates a udev rule for the FT232 serial adapter and grants StreamController access to host devices. After it completes, unplug and replug the adapter, then restart StreamController.
+This adds your user to the `dialout` group and grants StreamController Flatpak access to host devices. After it completes, reboot the Pi.
 
 ### Updating Vendored Dependencies
 
