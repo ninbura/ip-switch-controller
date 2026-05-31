@@ -162,3 +162,6 @@ cython_debug/
 #.idea/
 
 VERSION
+
+# Vendored dependency metadata (package source is committed, not the pip metadata)
+*.dist-info/

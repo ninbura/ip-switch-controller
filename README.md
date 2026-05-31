@@ -27,8 +27,10 @@ cd ~/.var/app/com.core447.StreamController/data/plugins
 git clone https://github.com/ninbura/ip-switch-controller
 ```
 
-The serial actions require `pyserial`, which is not bundled with StreamController. Install it into the Flatpak environment and restart StreamController:
+### Updating Vendored Dependencies
+
+The `serial/` package (pyserial) is vendored directly in the repo. To update it:
 
 ```bash
-flatpak run --command=pip3 com.core447.StreamController install pyserial
+pip3 install --target . --no-deps --upgrade pyserial
 ```
