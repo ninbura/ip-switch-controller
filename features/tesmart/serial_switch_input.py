@@ -103,6 +103,11 @@ class TESmartSerialSwitchInput(ActionBase):
             port_paths.insert(0, saved_port)
             port_labels.insert(0, f"{saved_port} (not connected)")
 
+        if not saved_port and port_paths:
+            saved_port = port_paths[0]
+            settings[SETTINGS_KEY_SERIAL_PORT] = saved_port
+            self.set_settings(settings)
+
         self._port_paths = port_paths
 
         port_model = Gtk.StringList()
