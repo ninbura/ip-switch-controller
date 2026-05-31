@@ -27,6 +27,16 @@ cd ~/.var/app/com.core447.StreamController/data/plugins
 git clone https://github.com/ninbura/ip-switch-controller
 ```
 
+### Serial Port Setup
+
+To use the **TESmart: Switch Input (Serial)** action, run the setup script once after cloning:
+
+```bash
+./setup.sh
+```
+
+This creates a udev rule for the FT232 serial adapter and grants StreamController access to host devices. After it completes, unplug and replug the adapter, then restart StreamController.
+
 ### Updating Vendored Dependencies
 
 The `serial/` package (pyserial) is vendored directly in the repo. To update it:
